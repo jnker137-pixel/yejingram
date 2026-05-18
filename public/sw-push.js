@@ -1,11 +1,11 @@
 /* global self, clients */
 
+const APP_URL = 'https://jnker137-pixel.github.io/yejingram/';
+
 self.addEventListener('push', (event) => {
     let data = {};
     try {
-        if (event.data) {
-            data = event.data.json();
-        }
+        if (event.data) data = event.data.json();
     } catch (e) {
         data = { title: '예진그램', body: event.data && event.data.text() };
     }
@@ -23,20 +23,18 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
-    const targetUrl = (event.notification.data && event.notification.data.url) || '/yejingram/';
+    const targetUrl = (event.notification.data && event.notification.data.url) || APP_URL;
 
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
             for (const client of clientList) {
-                if ('focus' in client) {
-                    client.navigate(targetUrl);
+                if (client.url.startsWith(APP_URL) && 'focus' in client) {
                     return client.focus();
                 }
             }
             if (clients.openWindow) {
                 return clients.openWindow(targetUrl);
             }
-            return undefined;
         })
     );
 });
