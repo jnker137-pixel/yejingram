@@ -6,11 +6,11 @@ export async function ensureAppServiceWorkerRegistered(): Promise<void> {
         const regs = await navigator.serviceWorker.getRegistrations();
         const hasSw = regs.some((r) => {
             const scriptUrls = [r.active?.scriptURL, r.installing?.scriptURL, r.waiting?.scriptURL].filter(Boolean) as string[];
-            return scriptUrls.some((u) => u.endsWith('/sw-cache.js'));
+            return scriptUrls.some((u) => u.includes('sw-cache.js'));
         });
 
         if (!hasSw) {
-            await navigator.serviceWorker.register('/sw-cache.js');
+            await navigator.serviceWorker.register(import.meta.env.BASE_URL + 'sw-cache.js');
         }
     } catch {
         // Ignore registration failures (e.g., unsupported context or blocked SW).
@@ -43,10 +43,10 @@ export async function subscribeToPush(clientId: string = 'seongmin'): Promise<vo
         const regs = await navigator.serviceWorker.getRegistrations();
         let pushReg = regs.find(r =>
             [r.active?.scriptURL, r.installing?.scriptURL, r.waiting?.scriptURL]
-                .filter(Boolean).some(u => u?.endsWith('/sw-push.js'))
+                .filter(Boolean).some(u => u?.includes('sw-push.js'))
         );
         if (!pushReg) {
-            pushReg = await navigator.serviceWorker.register('/sw-push.js');
+            pushReg = await navigator.serviceWorker.register(import.meta.env.BASE_URL + 'sw-push.js');
         }
         await navigator.serviceWorker.ready;
 
