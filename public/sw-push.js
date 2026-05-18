@@ -7,7 +7,6 @@ self.addEventListener('push', (event) => {
             data = event.data.json();
         }
     } catch (e) {
-        // fallback to text
         data = { title: '예진그램', body: event.data && event.data.text() };
     }
 
@@ -24,7 +23,7 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
-    const targetUrl = (event.notification.data && event.notification.data.url) || '/';
+    const targetUrl = (event.notification.data && event.notification.data.url) || '/yejingram/';
 
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
