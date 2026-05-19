@@ -380,6 +380,7 @@ function MainChat({ room, isMobileSidebarOpen, onToggleMobileSidebar, onToggleCh
   }, []);
 
   if (!room || (!character && room?.type !== 'Group')) {
+    const realmUrl = import.meta.env.DEV ? `http://localhost:5174` : import.meta.env.VITE_REALM_URL;
     return (
       <div className="flex-1 flex items-center justify-center bg-(--color-bg-secondary)">
         <button
@@ -389,11 +390,18 @@ function MainChat({ room, isMobileSidebarOpen, onToggleMobileSidebar, onToggleCh
         >
           <Menu className="h-5 w-5 text-(--color-icon-primary)" />
         </button>
-        <iframe
-          ref={iframeRef}
-          src={`${import.meta.env.DEV ? `http://localhost:5174` : import.meta.env.VITE_REALM_URL}`}
-          className="w-full h-full"
-        ></iframe>
+        {realmUrl ? (
+          <iframe
+            ref={iframeRef}
+            src={realmUrl}
+            className="w-full h-full"
+          ></iframe>
+        ) : (
+          <div className="flex flex-col items-center gap-3 text-(--color-icon-tertiary) select-none">
+            <Menu className="w-8 h-8 opacity-30" />
+            <p className="text-sm">채팅방을 선택해주세요</p>
+          </div>
+        )}
       </div>
     );
   }
