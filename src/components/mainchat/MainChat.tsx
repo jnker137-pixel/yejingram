@@ -9,7 +9,7 @@ import { selectMessagesByRoomId } from '../../entities/message/selectors';
 import MessageList from './Message';
 import { messagesActions } from '../../entities/message/slice';
 import { roomsActions } from '../../entities/room/slice';
-import { Avatar, GroupChatAvatar } from '../../utils/Avatar';
+import { GroupChatAvatar } from '../../utils/Avatar';
 import { SendMessage, SendGroupChatMessage } from '../../services/llm/LLMcaller';
 import type { Sticker } from '../../entities/character/types';
 import { StickerPanel } from './StickerPanel';
