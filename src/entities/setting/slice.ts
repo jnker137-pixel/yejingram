@@ -15,6 +15,7 @@ export const initialApiConfigs: Record<ApiProvider, ApiConfig> = {
     deepseek: { apiKey: '', model: 'deepseek-chat', customModels: [] },
     openrouter: { apiKey: '', model: '', customModels: [], tokenizer: '', providers: [], providerAllowFallbacks: true },
     custom: { apiKey: '', baseUrl: '', model: '', customModels: [], tokenizer: '', payloadTemplate: '', maxRetries: 3 },
+    'seoa-worker': { apiKey: '', baseUrl: 'https://seongmin-bot.jnkre137.workers.dev/chat', model: 'seoa-worker', customModels: [] },
 };
 
 export const initialSyncSettings: Sync = {

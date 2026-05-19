@@ -175,6 +175,25 @@ async function callApi(
     extraSystemInstruction?: string,
 ): Promise<ChatResponse> {
     const { apiProvider } = settings;
+
+    // seoa-worker: Worker /chat 엔드포인트 직접 호출
+    if (apiProvider === 'seoa-worker') {
+        const workerUrl = apiConfig.baseUrl || 'https://seongmin-bot.jnkre137.workers.dev/chat';
+        const lastUserMsg = [...messages].reverse().find(m => m.type === 'TEXT' && m.authorId === 0);
+        const text = (lastUserMsg as any)?.content || '';
+        const res = await fetch(workerUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: text })
+        });
+        if (!res.ok) throw new Error(`Worker 오류: ${res.status}`);
+        const data = await res.json() as { reply: string };
+        return {
+            messages: [{ delay: 800, content: sanitizeOutputContent(data.reply) || '' }],
+            reactionDelay: 800
+        };
+    }
+
     let payload: string | object = '';
 
     const useThoughtSignature = apiConfig.model.startsWith('gemini-3') && settings.useThoughtSignature;

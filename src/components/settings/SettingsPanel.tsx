@@ -262,6 +262,7 @@ function SettingsPanel({ openPromptModal, onClose }: SettingsPanelProps) {
                                         <option value="deepseek">DeepSeek</option>
                                         <option value="openrouter">OpenRouter</option>
                                         <option value="custom">Custom</option>
+                                        <option value="seoa-worker">서아 Worker</option>
                                     </select>
                                 </div>
                                 <ProviderSettings settings={localSettings} setSettings={setLocalSettings} />

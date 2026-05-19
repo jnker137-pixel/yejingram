@@ -47,7 +47,8 @@ const providerModels: Record<string, string[]> = {
         'deepseek-reasoner'
     ],
     openrouter: [],
-    custom: []
+    custom: [],
+    'seoa-worker': ['seoa-worker']
 };
 
 export type ProviderModel = typeof providerModels[keyof typeof providerModels][number];
@@ -444,6 +445,19 @@ export function ProviderSettings({ settings, setSettings }: ProviderSettingsProp
                             )}
                         </div>
                     )}
+                </div>
+            )}
+
+            {provider === 'seoa-worker' && (
+                <div>
+                    <label className="flex items-center text-sm font-medium text-(--color-text-interface) mb-2"><Link className="w-4 h-4 mr-2" />Worker URL</label>
+                    <input
+                        type="text"
+                        value={config.baseUrl || ''}
+                        onChange={e => handleConfigChange('baseUrl', e.target.value)}
+                        placeholder="https://seongmin-bot.jnkre137.workers.dev/chat"
+                        className="w-full px-4 py-3 bg-(--color-bg-input-secondary) text-(--color-text-primary) rounded-xl border border-(--color-border) focus:ring-2 focus:ring-(--color-focus-border)/50 focus:border-(--color-focus-border) transition-transform duration-200 text-sm"
+                    />
                 </div>
             )}
 
