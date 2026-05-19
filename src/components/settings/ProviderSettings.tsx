@@ -65,7 +65,7 @@ export function ProviderSettings({ settings, setSettings }: ProviderSettingsProp
     const [endpointLoading, setEndpointLoading] = useState(false);
     const [endpointError, setEndpointError] = useState<string | null>(null);
     const provider = settings.apiProvider;
-    const rawConfig = settings?.apiConfigs?.[provider];
+    const rawConfig = settings?.apiConfigs?.[provider] ?? initialApiConfigs[provider] ?? { apiKey: '', model: '', customModels: [], baseUrl: '' };
     const config = {
         ...rawConfig,
         customModels: rawConfig.customModels || []
