@@ -27,7 +27,7 @@ import type { Character } from '../../entities/character/types';
 import type { Lore } from '../../entities/lorebook/types';
 import { type VirtuosoHandle } from 'react-virtuoso';
 import type { StoredFileRef } from '../../entities/message/types';
-import { getBlob, makeBinaryUrl, saveBlob } from '../../services/binaryStore';
+import { getBlob, isStoredBinaryRef, makeBinaryUrl, saveBlob } from '../../services/binaryStore';
 import { FilePreview } from './FilePreview';
 
 interface MainChatProps {
@@ -531,98 +531,140 @@ function ChatHeader({
   const avatarDivRef = useRef<HTMLDivElement>(null);
   const buttonsDivRef = useRef<HTMLDivElement>(null);
   const [charsCount, setCharsCount] = useState(0);
+  const [bannerUrl, setBannerUrl] = useState<string | null>(null);
 
-  const getHeaderAvatar = () => {
-    if (room.type === 'Group') {
-      return (
-        <>
-          <GroupChatAvatar participants={room.memberIds.map(id => memberChars?.find(c => c?.id === id)).filter(Boolean)} />
-        </>
-      );
+  // Load avatar blob URL for banner background
+  useEffect(() => {
+    if (room.type !== 'Direct' || !character || !isStoredBinaryRef(character.avatar)) {
+      setBannerUrl(null);
+      return;
     }
-    if (room.type === 'Direct' && character) {
-      return (
-        <>
-          <Avatar char={character} size="md" />
-          <div className={`absolute -bottom-1 -right-1 w-4 h-4 ${onlineStatus ? 'bg-(--color-indicator-online)' : 'bg-(--color-indicator-offline)'} border-2 border-(--color-bg-main) rounded-full`}></div>
-        </>
-      );
-    }
-    return null;
-  };
-
-  const getHeaderTitle = () => {
-    if (room.type === 'Direct' && character) {
-      return character.name;
-    }
-    return room.name;
-  };
+    let cancelled = false;
+    const storageKey = character.avatar.storageKey;
+    void (async () => {
+      const blob = await getBlob(storageKey);
+      if (!blob || cancelled) { setBannerUrl(null); return; }
+      setBannerUrl(makeBinaryUrl(storageKey));
+    })();
+    return () => { cancelled = true; };
+  }, [room.type, character?.id, isStoredBinaryRef(character?.avatar) ? (character?.avatar as any).storageKey : null]);
 
   useEffect(() => {
     function calculate() {
       if (!textSampleSpanRef.current || !headerRef.current || !avatarDivRef.current || !buttonsDivRef.current) return;
-
       const rect = textSampleSpanRef.current.getBoundingClientRect();
       const charWidth = rect.width / textSampleSpanRef.current.innerText.length;
-
-      const targetWidth = headerRef.current.clientWidth - avatarDivRef.current.clientWidth - buttonsDivRef.current.clientWidth - 48 - 6; // 48 for padding, 6 for margin
-
+      const targetWidth = headerRef.current.clientWidth - avatarDivRef.current.clientWidth - buttonsDivRef.current.clientWidth - 48 - 6;
       setCharsCount(Math.floor(targetWidth / charWidth));
     }
-
     calculate();
     window.addEventListener('resize', calculate);
     return () => window.removeEventListener('resize', calculate);
   }, []);
 
-
-  const getHeaderSubtitle = () => {
-    if (room.type === 'Group') {
-      const THRESHOLD = (charsCount || 20) - (i18n.resolvedLanguage !== 'en' ? 8 : 14);
-      if (!(memberChars && memberChars.length > 0)) { return t('main.group.noParticipants') }
-      let concatedNames = '';
-      let totalLength = 0;
-      let memberCounts = memberChars.length;
-      for (const char of memberChars) {
-        if (!char) continue;
-        totalLength += char.name.length;
-        if (totalLength > THRESHOLD) {
-          concatedNames += t('main.group.participantsOverflowCount', { count: memberCounts });
-          break;
-        }
-        concatedNames += (concatedNames ? ', ' : '') + char.name;
-        totalLength += 2; // for ', '
-        memberCounts--;
+  const getGroupSubtitle = () => {
+    const THRESHOLD = (charsCount || 20) - (i18n.resolvedLanguage !== 'en' ? 8 : 14);
+    if (!(memberChars && memberChars.length > 0)) return t('main.group.noParticipants');
+    let concatedNames = '';
+    let totalLength = 0;
+    let memberCounts = memberChars.length;
+    for (const char of memberChars) {
+      if (!char) continue;
+      totalLength += char.name.length;
+      if (totalLength > THRESHOLD) {
+        concatedNames += t('main.group.participantsOverflowCount', { count: memberCounts });
+        break;
       }
-      return concatedNames;
+      concatedNames += (concatedNames ? ', ' : '') + char.name;
+      totalLength += 2;
+      memberCounts--;
     }
-    if (room.type === 'Direct') {
-      return room.name;
-    }
-    return '';
+    return concatedNames;
   };
 
-  const getRoomNameEditSize = () => {
-    if (room.type === 'Direct') {
-      return "bg-(--color-bg-input-primary) text-(--color-text-primary) text-sm rounded-lg px-2 py-1 w-full focus:outline-none focus:ring-2 focus:ring-(--color-focus-border)";
-    }
-    return "bg-(--color-bg-input-primary) text-(--color-text-primary) text-lg font-semibold rounded-lg px-3 py-1 w-full focus:outline-none focus:ring-2 focus:ring-(--color-focus-border)";
-  };
+  // --- Direct chat: banner-style header ---
+  if (room.type === 'Direct' && character) {
+    return (
+      <div className="relative w-full h-44 overflow-hidden shrink-0 border-b border-(--color-border)">
+        {/* Background image or gradient fallback */}
+        {bannerUrl ? (
+          <img src={bannerUrl} alt={character.name} className="absolute inset-0 w-full h-full object-cover object-top" />
+        ) : (
+          <div className="absolute inset-0 bg-linear-to-br from-(--color-avatar-from) to-(--color-avatar-to) flex items-end justify-start p-4">
+            <span className="text-7xl font-bold text-white/20 select-none">{character.name[0]}</span>
+          </div>
+        )}
 
-  const getEditButtonSize = () => {
-    if (room.type === 'Direct') {
-      return "w-3 h-3";
-    }
-    return "w-4 h-4";
-  };
+        {/* Gradient overlay: dark at top + bottom for legibility */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/75 pointer-events-none" />
 
-  const getEditPosition = () => {
-    if (room.type === 'Direct') {
-      return "mt-1";
-    }
-    return "";
-  };
+        {/* Top row: mobile toggle + action buttons */}
+        <div className="absolute top-0 left-0 right-0 flex items-center justify-between p-2.5">
+          <button
+            id="mobile-sidebar-toggle"
+            className="p-2 rounded-full bg-black/30 backdrop-blur-sm text-white hover:bg-black/50 md:hidden transition-colors"
+            onClick={onToggleMobileSidebar}
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <div className="flex items-center gap-0.5 ml-auto bg-black/30 backdrop-blur-sm rounded-full px-1.5 py-1">
+            <button className="p-1.5 rounded-full text-white/80 hover:text-white hover:bg-white/20 transition-colors" title={t('main.tooltips.authorNote')} onClick={onOpenAuthorNote}>
+              <StickyNote className="w-4 h-4" />
+            </button>
+            <button className="p-1.5 rounded-full text-white/80 hover:text-white hover:bg-white/20 transition-colors" title={t('main.tooltips.roomMemory')} onClick={onOpenRoomMemory}>
+              <Brain className="w-4 h-4" />
+            </button>
+            <button className="p-1.5 rounded-full text-white/80 hover:text-white hover:bg-white/20 transition-colors" title={t('main.tooltips.activeLorebook')} onClick={onOpenLoreBook}>
+              <BookOpen className="w-4 h-4" />
+            </button>
+            <button className="p-1.5 rounded-full text-white/80 hover:text-white hover:bg-white/20 transition-colors" title={t('main.tooltips.characterSettings')} onClick={() => {
+              dispatch(charactersActions.setEditingCharacterId(character.id));
+              onOpenCharacterPanel();
+            }}>
+              <MoreHorizontal className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
 
+        {/* Bottom overlay: name + status (+ edit) */}
+        <div className="absolute bottom-0 left-0 right-0 px-4 pb-3 pt-6">
+          {isEditingRoomName ? (
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={newRoomName}
+                onChange={(e) => onSetNewRoomName(e.target.value)}
+                className="bg-white/20 backdrop-blur-sm text-white text-sm rounded-lg px-2 py-1 flex-1 focus:outline-none focus:ring-2 focus:ring-white/50 placeholder-white/50"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); onSaveRoomName(); }
+                  if (e.key === 'Escape') onCancelEditRoomName();
+                }}
+              />
+              <button onClick={onSaveRoomName} className="p-1 text-white/80 hover:text-white"><Check className="w-3 h-3" /></button>
+              <button onClick={onCancelEditRoomName} className="p-1 text-white/80 hover:text-white"><XCircle className="w-3 h-3" /></button>
+            </div>
+          ) : (
+            <div className="group flex items-center gap-1.5">
+              <h2 className="font-bold text-white text-xl drop-shadow-md">{character.name}</h2>
+              <button onClick={onEditRoomName} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-white/70 hover:text-white">
+                <Edit2 className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <div className={`w-2 h-2 rounded-full ${onlineStatus ? 'bg-green-400' : 'bg-gray-400'} shadow-sm`} />
+            <span className="text-xs text-white/70">{onlineStatus ? 'online' : 'offline'}</span>
+            {!isEditingRoomName && room.name !== character.name && (
+              <span className="text-xs text-white/50 ml-1">· {room.name}</span>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- Group chat: compact header (original) ---
   return (
     <header ref={headerRef} className="px-6 py-4 bg-(--color-bg-main) border-b border-(--color-border) flex items-center justify-between">
       <div className="flex items-center space-x-4">
@@ -634,64 +676,35 @@ function ChatHeader({
           <Menu className="h-5 w-5 text-(--color-icon-primary)" />
         </button>
         <div ref={avatarDivRef} className="relative">
-          {getHeaderAvatar()}
+          <GroupChatAvatar participants={room.memberIds.map(id => memberChars?.find(c => c?.id === id)).filter(Boolean)} />
         </div>
         <div className="flex-1">
           {isEditingRoomName ? (
-            <div className={`flex items-center space-x-2 ${getEditPosition()}`}>
+            <div className="flex items-center space-x-2">
               <input
                 type="text"
                 value={newRoomName}
                 onChange={(e) => onSetNewRoomName(e.target.value)}
-                className={getRoomNameEditSize()}
+                className="bg-(--color-bg-input-primary) text-(--color-text-primary) text-lg font-semibold rounded-lg px-3 py-1 w-full focus:outline-none focus:ring-2 focus:ring-(--color-focus-border)"
                 autoFocus
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-                    e.preventDefault();
-                    onSaveRoomName();
-                  }
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); onSaveRoomName(); }
                   if (e.key === 'Escape') onCancelEditRoomName();
                 }}
               />
-              <button onClick={onSaveRoomName} className="p-1 text-(--color-button-positive) hover:text-(--color-button-positive-accent)">
-                <Check className={getEditButtonSize()} />
-              </button>
-              <button onClick={onCancelEditRoomName} className="p-1 text-(--color-textual-button-negative) hover:text-(--color-textual-button-negative-accent)">
-                <XCircle className={getEditButtonSize()} />
-              </button>
+              <button onClick={onSaveRoomName} className="p-1 text-(--color-button-positive) hover:text-(--color-button-positive-accent)"><Check className="w-4 h-4" /></button>
+              <button onClick={onCancelEditRoomName} className="p-1 text-(--color-textual-button-negative) hover:text-(--color-textual-button-negative-accent)"><XCircle className="w-4 h-4" /></button>
             </div>
           ) : (
             <>
-              {room.type === 'Direct' ? (
-                <>
-                  <h2 className="font-bold text-(--color-text-primary) text-lg">{getHeaderTitle()}</h2>
-                  <div className={`group flex items-center space-x-2 ${getEditPosition()}`}>
-                    <p className="text-sm text-(--color-icon-tertiary)">{getHeaderSubtitle()}</p>
-                    <button
-                      onClick={onEditRoomName}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-(--color-icon-secondary) hover:text-(--color-icon-primary)"
-                    >
-                      <Edit2 className={getEditButtonSize()} />
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="group flex items-center space-x-2">
-                    <h2 className="font-bold text-(--color-text-primary) text-lg">{getHeaderTitle()}</h2>
-                    <button
-                      onClick={onEditRoomName}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-(--color-icon-secondary) hover:text-(--color-icon-primary)"
-                    >
-                      <Edit2 className={getEditButtonSize()} />
-                    </button>
-                  </div>
-                  <span ref={textSampleSpanRef} className="text-sm opacity-0 absolute">{t('main.hiddenRefText')}</span>
-                  <p className="text-sm text-(--color-text-secondary) flex items-center mt-1">
-                    {getHeaderSubtitle()}
-                  </p>
-                </>
-              )}
+              <div className="group flex items-center space-x-2">
+                <h2 className="font-bold text-(--color-text-primary) text-lg">{room.name}</h2>
+                <button onClick={onEditRoomName} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-(--color-icon-secondary) hover:text-(--color-icon-primary)">
+                  <Edit2 className="w-4 h-4" />
+                </button>
+              </div>
+              <span ref={textSampleSpanRef} className="text-sm opacity-0 absolute">{t('main.hiddenRefText')}</span>
+              <p className="text-sm text-(--color-text-secondary) flex items-center mt-1">{getGroupSubtitle()}</p>
             </>
           )}
         </div>
@@ -706,20 +719,14 @@ function ChatHeader({
         <button className="p-2 rounded-full hover:bg-(--color-bg-hover) text-(--color-icon-primary)" title={t('main.tooltips.activeLorebook')} onClick={onOpenLoreBook}>
           <BookOpen className="w-5 h-5" />
         </button>
-        <button className="p-2 rounded-full hover:bg-(--color-bg-hover) text-(--color-icon-primary)" title={room.type === 'Direct' ? t('main.tooltips.characterSettings') : t('main.tooltips.roomSettings')} onClick={() => {
-          if (room.type === 'Group') {
-            dispatch(settingsActions.setEditingRoomId(room.id));
-            onOpenGroupchatSettings();
-          } else {
-            if (!character) return;
-            dispatch(charactersActions.setEditingCharacterId(character.id));
-            onOpenCharacterPanel();
-          }
+        <button className="p-2 rounded-full hover:bg-(--color-bg-hover) text-(--color-icon-primary)" title={t('main.tooltips.roomSettings')} onClick={() => {
+          dispatch(settingsActions.setEditingRoomId(room.id));
+          onOpenGroupchatSettings();
         }}>
           <MoreHorizontal className="w-5 h-5" />
         </button>
       </div>
-    </header >
+    </header>
   );
 }
 
