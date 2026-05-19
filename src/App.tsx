@@ -42,7 +42,7 @@ function App() {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       setIsMobileSidebarOpen(false);
-      return params.get('roomId')?.trim() || null;
+      return params.get('roomId')?.trim() || localStorage.getItem('lastActiveRoomId') || null;
     }
     return null;
   })
@@ -235,6 +235,7 @@ function App() {
 
   useEffect(() => {
     setActiveRoomId(roomId);
+    if (roomId) localStorage.setItem('lastActiveRoomId', roomId);
   }, [roomId]);
 
   // 패널 자동 닫힘: "편집 중이었다가" editingCharacterId가 null이 될 때만 닫기
